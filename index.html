@@ -169,7 +169,7 @@
 
 <header class="top">
   <div>
-    <h1>Nounou Manager</h1>
+    <h1>Nounou Sonia Manager</h1>
     <div class="sub" id="headerSub">Gestion simple des heures et du salaire</div>
   </div>
 </header>
@@ -489,7 +489,7 @@
         `Frais de repas : ${money(repasTotal)}\n`+
         `TOTAL ESTIMÉ : ${money(total)}\n`;
       if(navigator.share){
-        navigator.share({title:"Estimation Nounou Manager", text:texte}).catch(()=>{});
+        navigator.share({title:"Estimation Nounou Sonia Manager", text:texte}).catch(()=>{});
       } else {
         navigator.clipboard.writeText(texte).then(()=>toast("Résumé copié dans le presse-papiers"))
           .catch(()=>{
