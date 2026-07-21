@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Nounou Manager</title>
+<meta name="theme-color" content="#3D6B7A">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F7F5F1;
+    --ink:#2A3B42;
+    --ink-soft:#5C6B70;
+    --primary:#3D6B7A;
+    --primary-dark:#2A4D58;
+    --accent:#D9A441;
+    --card:#FFFFFF;
+    --border:#E4E0D8;
+    --danger:#B5504B;
+    --success:#4C7A5E;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font-size:16px;
+    line-height:1.4;
+    padding-bottom:calc(72px + env(safe-area-inset-bottom));
+    padding-top:env(safe-area-inset-top);
+    min-height:100vh;
+  }
+  h1,h2,h3{font-family:'Quicksand',-apple-system,sans-serif;font-weight:700;margin:0 0 4px;}
+  header.top{
+    padding:18px 20px 14px;
+    background:var(--primary);
+    color:#fff;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  header.top h1{font-size:1.25rem;color:#fff;margin:0;}
+  header.top .sub{font-size:0.78rem;color:#DCEAEE;margin-top:2px;}
+  main{padding:16px;max-width:640px;margin:0 auto;}
+  .card{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:16px;
+    margin-bottom:14px;
+  }
+  .card h2{font-size:1.05rem;color:var(--primary-dark);}
+  label{
+    display:block;
+    font-size:0.82rem;
+    color:var(--ink-soft);
+    margin:10px 0 4px;
+    font-weight:600;
+  }
+  input[type=text],input[type=number],input[type=date],input[type=time],textarea,select{
+    width:100%;
+    padding:10px 12px;
+    border:1px solid var(--border);
+    border-radius:10px;
+    font-size:1rem;
+    background:#FCFBF9;
+    color:var(--ink);
+    font-family:inherit;
+  }
+  input:focus,textarea:focus,select:focus{
+    outline:2px solid var(--primary);
+    outline-offset:1px;
+  }
+  .row{display:flex;gap:10px;}
+  .row > *{flex:1;}
+  button{
+    font-family:inherit;
+    font-size:0.95rem;
+    font-weight:600;
+    border:none;
+    border-radius:10px;
+    padding:11px 16px;
+    cursor:pointer;
+  }
+  .btn-primary{background:var(--primary);color:#fff;}
+  .btn-primary:active{background:var(--primary-dark);}
+  .btn-accent{background:var(--accent);color:var(--ink);}
+  .btn-outline{background:transparent;color:var(--primary);border:1.5px solid var(--primary);}
+  .btn-danger{background:transparent;color:var(--danger);border:1.5px solid var(--danger);}
+  .btn-ghost{background:transparent;color:var(--ink-soft);padding:8px 10px;}
+  .btn-row{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;}
+  .fiche-item{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:12px 4px;
+    border-bottom:1px solid var(--border);
+  }
+  .fiche-item:last-child{border-bottom:none;}
+  .dot{
+    width:14px;height:14px;border-radius:50%;flex-shrink:0;
+  }
+  .fiche-info{flex:1;min-width:0;}
+  .fiche-info .name{font-weight:700;}
+  .fiche-info .meta{font-size:0.8rem;color:var(--ink-soft);}
+  .icon-btn{
+    background:transparent;border:none;color:var(--ink-soft);
+    font-size:1.1rem;padding:6px;
+  }
+  .heure-item{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:10px 4px;border-bottom:1px solid var(--border);
+    font-size:0.92rem;
+  }
+  .heure-item:last-child{border-bottom:none;}
+  .heure-item .dur{color:var(--primary-dark);font-weight:700;}
+  .empty{
+    text-align:center;color:var(--ink-soft);padding:24px 10px;font-size:0.92rem;
+  }
+  .total-line{
+    display:flex;justify-content:space-between;padding:6px 0;font-size:0.95rem;
+  }
+  .total-line.grand{
+    border-top:2px solid var(--border);margin-top:8px;padding-top:12px;
+    font-weight:700;font-size:1.1rem;color:var(--primary-dark);
+  }
+  nav.tabs{
+    position:fixed;bottom:0;left:0;right:0;
+    background:var(--card);
+    border-top:1px solid var(--border);
+    display:flex;
+    padding-bottom:env(safe-area-inset-bottom);
+    z-index:10;
+  }
+  nav.tabs button{
+    flex:1;background:none;border:none;border-radius:0;
+    padding:10px 4px 8px;
+    display:flex;flex-direction:column;align-items:center;gap:3px;
+    color:var(--ink-soft);font-size:0.7rem;font-weight:600;
+  }
+  nav.tabs button.active{color:var(--primary);}
+  nav.tabs button svg{width:22px;height:22px;}
+  .toast{
+    position:fixed;bottom:calc(90px + env(safe-area-inset-bottom));left:50%;
+    transform:translateX(-50%);
+    background:var(--ink);color:#fff;
+    padding:10px 18px;border-radius:20px;font-size:0.88rem;
+    opacity:0;transition:opacity .25s;pointer-events:none;z-index:20;
+  }
+  .toast.show{opacity:1;}
+  .badge{
+    display:inline-block;background:#EFE6D0;color:#8A6A1F;
+    font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:8px;
+  }
+  select.fiche-select{margin-bottom:14px;}
+  .hint{font-size:0.78rem;color:var(--ink-soft);margin-top:4px;}
+  a.link-btn{color:var(--primary);font-weight:600;text-decoration:none;}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div>
+    <h1>Nounou Manager</h1>
+    <div class="sub" id="headerSub">Gestion simple des heures et du salaire</div>
+  </div>
+</header>
+
+<main id="app"></main>
+
+<div class="toast" id="toast"></div>
+
+<nav class="tabs">
+  <button data-tab="fiches" class="tab-btn">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-6 8-6s8 2 8 6"/></svg>
+    Fiches
+  </button>
+  <button data-tab="heures" class="tab-btn">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+    Heures
+  </button>
+  <button data-tab="estimation" class="tab-btn">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg>
+    Estimation
+  </button>
+  <button data-tab="sauvegarde" class="tab-btn">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M4 17v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+    Sauvegarde
+  </button>
+</nav>
+
+<script>
+(function(){
+  "use strict";
+
+  const STORAGE_FICHES = "nounou_fiches_v1";
+  const STORAGE_HEURES = "nounou_heures_v1";
+  const COLORS = ["#3D6B7A","#D9A441","#B5504B","#4C7A5E","#7A5C8A","#C97B5A"];
+
+  function loadFiches(){ try { return JSON.parse(localStorage.getItem(STORAGE_FICHES)) || []; } catch(e){ return []; } }
+  function saveFiches(list){ localStorage.setItem(STORAGE_FICHES, JSON.stringify(list)); }
+  function loadHeures(){ try { return JSON.parse(localStorage.getItem(STORAGE_HEURES)) || []; } catch(e){ return []; } }
+  function saveHeures(list){ localStorage.setItem(STORAGE_HEURES, JSON.stringify(list)); }
+
+  function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+  function escapeHtml(s){ return (s||"").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+  function money(n){ return (Math.round(n*100)/100).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}) + " €"; }
+  function toast(msg){
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t._timer);
+    t._timer = setTimeout(()=>t.classList.remove('show'), 2200);
+  }
+  function timeToMinutes(t){
+    if(!t) return null;
+    const [h,m] = t.split(':').map(Number);
+    return h*60+m;
+  }
+  function computeDurationHours(debut, fin){
+    let d = timeToMinutes(debut), f = timeToMinutes(fin);
+    if(d===null||f===null) return 0;
+    let diff = f - d;
+    if(diff < 0) diff += 24*60; // passage minuit
+    return diff/60;
+  }
+  function monthLabel(ym){
+    const [y,m] = ym.split('-');
+    const noms = ["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
+    return noms[parseInt(m,10)-1] + " " + y;
+  }
+  function currentYm(){
+    const d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,'0');
+  }
+
+  let state = {
+    tab: 'fiches',
+    fiches: loadFiches(),
+    heures: loadHeures(),
+    selectedFicheId: null,
+    editingFicheId: null,
+    heuresMonth: currentYm(),
+    estimMonth: currentYm(),
+  };
+
+  if(state.fiches.length && !state.selectedFicheId){
+    state.selectedFicheId = state.fiches[0].id;
+  }
+
+  const app = document.getElementById('app');
+  const headerSub = document.getElementById('headerSub');
+
+  function setTab(tab){
+    state.tab = tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab===tab));
+    render();
+  }
+  document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', ()=>setTab(b.dataset.tab)));
+
+  function render(){
+    if(state.tab==='fiches') return renderFiches();
+    if(state.tab==='heures') return renderHeures();
+    if(state.tab==='estimation') return renderEstimation();
+    if(state.tab==='sauvegarde') return renderSauvegarde();
+  }
+
+  // ---------- FICHES ----------
+  function renderFiches(){
+    headerSub.textContent = "Fiches enfants / contrats";
+    const editing = state.fiches.find(f => f.id === state.editingFicheId);
+    app.innerHTML = `
+      <div class="card">
+        <h2>${editing ? "Modifier la fiche" : "Nouvelle fiche"}</h2>
+        <label for="f-nom">Prénom de l'enfant</label>
+        <input type="text" id="f-nom" value="${editing ? escapeHtml(editing.nom) : ''}" placeholder="Ex : Léo">
+        <label for="f-famille">Famille / employeur</label>
+        <input type="text" id="f-famille" value="${editing ? escapeHtml(editing.famille) : ''}" placeholder="Ex : Famille Martin">
+        <div class="row">
+          <div>
+            <label for="f-taux">Taux horaire net (€)</label>
+            <input type="number" step="0.01" min="0" id="f-taux" value="${editing ? editing.taux : ''}" placeholder="Ex : 4.50">
+          </div>
+          <div>
+            <label for="f-entretien">Indemnité entretien / jour (€)</label>
+            <input type="number" step="0.01" min="0" id="f-entretien" value="${editing ? editing.entretien : ''}" placeholder="Ex : 3.50">
+          </div>
+        </div>
+        <label for="f-repas">Frais de repas / jour (€)</label>
+        <input type="number" step="0.01" min="0" id="f-repas" value="${editing ? editing.repas : ''}" placeholder="Ex : 4.00">
+        <p class="hint">Ces montants sont modifiables à tout moment, notamment lors d'une revalorisation légale annuelle.</p>
+        <div class="btn-row">
+          <button class="btn-primary" id="f-save">${editing ? "Enregistrer" : "Ajouter la fiche"}</button>
+          ${editing ? '<button class="btn-ghost" id="f-cancel">Annuler</button>' : ''}
+        </div>
+      </div>
+      <div class="card">
+        <h2>Fiches existantes</h2>
+        <div id="fiches-list">
+          ${state.fiches.length ? state.fiches.map((f,i) => `
+            <div class="fiche-item">
+              <div class="dot" style="background:${COLORS[i % COLORS.length]}"></div>
+              <div class="fiche-info">
+                <div class="name">${escapeHtml(f.nom)}</div>
+                <div class="meta">${escapeHtml(f.famille)} · ${f.taux}€/h</div>
+              </div>
+              <button class="icon-btn" data-edit="${f.id}" aria-label="Modifier">✎</button>
+              <button class="icon-btn" data-del="${f.id}" aria-label="Supprimer">🗑</button>
+            </div>
+          `).join('') : '<div class="empty">Aucune fiche pour l\'instant. Ajoute la première ci-dessus.</div>'}
+        </div>
+      </div>
+    `;
+    document.getElementById('f-save').addEventListener('click', onSaveFiche);
+    const cancelBtn = document.getElementById('f-cancel');
+    if(cancelBtn) cancelBtn.addEventListener('click', ()=>{ state.editingFicheId=null; renderFiches(); });
+    document.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', ()=>{
+      state.editingFicheId = b.dataset.edit; renderFiches();
+    }));
+    document.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', ()=>{
+      if(confirm("Supprimer cette fiche et toutes ses heures saisies ?")){
+        const id = b.dataset.del;
+        state.fiches = state.fiches.filter(f=>f.id!==id);
+        state.heures = state.heures.filter(h=>h.ficheId!==id);
+        saveFiches(state.fiches); saveHeures(state.heures);
+        if(state.selectedFicheId===id) state.selectedFicheId = state.fiches[0]?.id || null;
+        toast("Fiche supprimée");
+        renderFiches();
+      }
+    }));
+  }
+
+  function onSaveFiche(){
+    const nom = document.getElementById('f-nom').value.trim();
+    const famille = document.getElementById('f-famille').value.trim();
+    const taux = parseFloat(document.getElementById('f-taux').value);
+    const entretien = parseFloat(document.getElementById('f-entretien').value) || 0;
+    const repas = parseFloat(document.getElementById('f-repas').value) || 0;
+    if(!nom){ toast("Le prénom est obligatoire"); return; }
+    if(isNaN(taux) || taux <= 0){ toast("Indique un taux horaire valide"); return; }
+    if(state.editingFicheId){
+      const f = state.fiches.find(x=>x.id===state.editingFicheId);
+      Object.assign(f, {nom, famille, taux, entretien, repas});
+      state.editingFicheId = null;
+      toast("Fiche mise à jour");
+    } else {
+      const f = {id: uid(), nom, famille, taux, entretien, repas};
+      state.fiches.push(f);
+      state.selectedFicheId = f.id;
+      toast("Fiche ajoutée");
+    }
+    saveFiches(state.fiches);
+    renderFiches();
+  }
+
+  // ---------- HEURES ----------
+  function renderHeures(){
+    headerSub.textContent = "Saisie des heures";
+    if(!state.fiches.length){
+      app.innerHTML = '<div class="card"><div class="empty">Crée d\'abord une fiche dans l\'onglet « Fiches ».</div></div>';
+      return;
+    }
+    if(!state.selectedFicheId) state.selectedFicheId = state.fiches[0].id;
+    const entries = state.heures
+      .filter(h => h.ficheId===state.selectedFicheId && h.date.startsWith(state.heuresMonth))
+      .sort((a,b)=>a.date.localeCompare(b.date));
+
+    app.innerHTML = `
+      <div class="card">
+        <label for="h-fiche">Enfant</label>
+        <select id="h-fiche" class="fiche-select">
+          ${state.fiches.map(f=>`<option value="${f.id}" ${f.id===state.selectedFicheId?'selected':''}>${escapeHtml(f.nom)}</option>`).join('')}
+        </select>
+        <h2>Ajouter une journée</h2>
+        <label for="h-date">Date</label>
+        <input type="date" id="h-date" value="${new Date().toISOString().slice(0,10)}">
+        <div class="row">
+          <div>
+            <label for="h-debut">Heure début</label>
+            <input type="time" id="h-debut" value="08:00">
+          </div>
+          <div>
+            <label for="h-fin">Heure fin</label>
+            <input type="time" id="h-fin" value="18:00">
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn-primary" id="h-save">Ajouter</button>
+        </div>
+      </div>
+      <div class="card">
+        <label for="h-month">Mois affiché</label>
+        <input type="month" id="h-month" value="${state.heuresMonth}">
+        <div style="margin-top:10px;">
+          ${entries.length ? entries.map(e => `
+            <div class="heure-item">
+              <div>${new Date(e.date+'T00:00:00').toLocaleDateString('fr-FR',{weekday:'short',day:'2-digit',month:'2-digit'})} — ${e.debut} → ${e.fin}</div>
+              <div class="dur">${computeDurationHours(e.debut,e.fin).toFixed(2)} h
+                <button class="icon-btn" data-delh="${e.id}" aria-label="Supprimer">🗑</button>
+              </div>
+            </div>
+          `).join('') : '<div class="empty">Aucune heure saisie ce mois-ci pour cet enfant.</div>'}
+        </div>
+      </div>
+    `;
+    document.getElementById('h-fiche').addEventListener('change', (e)=>{ state.selectedFicheId = e.target.value; renderHeures(); });
+    document.getElementById('h-month').addEventListener('change', (e)=>{ state.heuresMonth = e.target.value; renderHeures(); });
+    document.getElementById('h-save').addEventListener('click', onSaveHeure);
+    document.querySelectorAll('[data-delh]').forEach(b=>b.addEventListener('click', ()=>{
+      state.heures = state.heures.filter(h=>h.id!==b.dataset.delh);
+      saveHeures(state.heures);
+      renderHeures();
+    }));
+  }
+
+  function onSaveHeure(){
+    const date = document.getElementById('h-date').value;
+    const debut = document.getElementById('h-debut').value;
+    const fin = document.getElementById('h-fin').value;
+    if(!date || !debut || !fin){ toast("Complète tous les champs"); return; }
+    const existing = state.heures.find(h => h.ficheId===state.selectedFicheId && h.date===date);
+    if(existing){
+      if(!confirm("Une saisie existe déjà pour ce jour. La remplacer ?")) return;
+      existing.debut = debut; existing.fin = fin;
+    } else {
+      state.heures.push({id: uid(), ficheId: state.selectedFicheId, date, debut, fin});
+    }
+    saveHeures(state.heures);
+    toast("Journée enregistrée");
+    renderHeures();
+  }
+
+  // ---------- ESTIMATION ----------
+  function renderEstimation(){
+    headerSub.textContent = "Estimation mensuelle";
+    if(!state.fiches.length){
+      app.innerHTML = '<div class="card"><div class="empty">Crée d\'abord une fiche dans l\'onglet « Fiches ».</div></div>';
+      return;
+    }
+    if(!state.selectedFicheId) state.selectedFicheId = state.fiches[0].id;
+    const fiche = state.fiches.find(f=>f.id===state.selectedFicheId);
+    const entries = state.heures.filter(h => h.ficheId===fiche.id && h.date.startsWith(state.estimMonth));
+    const totalHeures = entries.reduce((s,e)=>s+computeDurationHours(e.debut,e.fin),0);
+    const joursTravailles = entries.length;
+    const salaire = totalHeures * fiche.taux;
+    const repasTotal = joursTravailles * fiche.repas;
+    const entretienTotal = joursTravailles * fiche.entretien;
+    const total = salaire + repasTotal + entretienTotal;
+
+    app.innerHTML = `
+      <div class="card">
+        <label for="e-fiche">Enfant</label>
+        <select id="e-fiche" class="fiche-select">
+          ${state.fiches.map(f=>`<option value="${f.id}" ${f.id===fiche.id?'selected':''}>${escapeHtml(f.nom)}</option>`).join('')}
+        </select>
+        <label for="e-month">Mois</label>
+        <input type="month" id="e-month" value="${state.estimMonth}">
+      </div>
+      <div class="card">
+        <h2>${escapeHtml(fiche.nom)} — <span class="badge">${monthLabel(state.estimMonth)}</span></h2>
+        <div class="total-line"><span>Jours travaillés</span><span>${joursTravailles}</span></div>
+        <div class="total-line"><span>Heures totales</span><span>${totalHeures.toFixed(2)} h</span></div>
+        <div class="total-line"><span>Salaire (${fiche.taux} €/h)</span><span>${money(salaire)}</span></div>
+        <div class="total-line"><span>Indemnité entretien (${fiche.entretien} €/j)</span><span>${money(entretienTotal)}</span></div>
+        <div class="total-line"><span>Frais de repas (${fiche.repas} €/j)</span><span>${money(repasTotal)}</span></div>
+        <div class="total-line grand"><span>Total estimé</span><span>${money(total)}</span></div>
+        <div class="btn-row">
+          <button class="btn-accent" id="e-share">Partager / copier le résumé</button>
+        </div>
+        <p class="hint">Estimation indicative basée sur les taux saisis dans la fiche — elle ne remplace pas un calcul officiel de bulletin de salaire.</p>
+      </div>
+    `;
+    document.getElementById('e-fiche').addEventListener('change', (e)=>{ state.selectedFicheId=e.target.value; renderEstimation(); });
+    document.getElementById('e-month').addEventListener('change', (e)=>{ state.estimMonth=e.target.value; renderEstimation(); });
+    document.getElementById('e-share').addEventListener('click', ()=>{
+      const texte = `Estimation - ${fiche.nom} (${fiche.famille})\n${monthLabel(state.estimMonth)}\n\n`+
+        `Jours travaillés : ${joursTravailles}\n`+
+        `Heures totales : ${totalHeures.toFixed(2)} h\n`+
+        `Salaire (${fiche.taux} €/h) : ${money(salaire)}\n`+
+        `Indemnité entretien : ${money(entretienTotal)}\n`+
+        `Frais de repas : ${money(repasTotal)}\n`+
+        `TOTAL ESTIMÉ : ${money(total)}\n`;
+      if(navigator.share){
+        navigator.share({title:"Estimation Nounou Manager", text:texte}).catch(()=>{});
+      } else {
+        navigator.clipboard.writeText(texte).then(()=>toast("Résumé copié dans le presse-papiers"))
+          .catch(()=>{
+            const blob = new Blob([texte], {type:'text/plain'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `estimation-${fiche.nom}-${state.estimMonth}.txt`;
+            a.click();
+          });
+      }
+    });
+  }
+
+  // ---------- SAUVEGARDE ----------
+  function renderSauvegarde(){
+    headerSub.textContent = "Sauvegarde et restauration";
+    app.innerHTML = `
+      <div class="card">
+        <h2>Exporter toutes les données</h2>
+        <p class="hint">Télécharge une copie complète (fiches + heures) à garder en sécurité, par exemple sur ton Drive.</p>
+        <div class="btn-row">
+          <button class="btn-primary" id="s-export">Télécharger la sauvegarde</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Restaurer une sauvegarde</h2>
+        <p class="hint">Remplace toutes les données actuelles par celles du fichier choisi. Une sauvegarde de sécurité est téléchargée automatiquement avant.</p>
+        <input type="file" id="s-import" accept="application/json">
+      </div>
+      <div class="card">
+        <h2>Réinitialiser</h2>
+        <p class="hint">Supprime toutes les fiches et heures de cet appareil. Irréversible.</p>
+        <div class="btn-row">
+          <button class="btn-danger" id="s-reset">Tout effacer</button>
+        </div>
+      </div>
+    `;
+    document.getElementById('s-export').addEventListener('click', exportData);
+    document.getElementById('s-import').addEventListener('change', importData);
+    document.getElementById('s-reset').addEventListener('click', ()=>{
+      if(confirm("Supprimer définitivement toutes les fiches et heures ?")){
+        exportData(true);
+        state.fiches = []; state.heures = [];
+        saveFiches([]); saveHeures([]);
+        toast("Données effacées");
+        renderSauvegarde();
+      }
+    });
+  }
+
+  function exportData(silent){
+    const data = {version:1, exportedAt: new Date().toISOString(), fiches: state.fiches, heures: state.heures};
+    const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `nounou-manager-sauvegarde-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    if(!silent) toast("Sauvegarde téléchargée");
+  }
+
+  function importData(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result);
+        if(!Array.isArray(data.fiches) || !Array.isArray(data.heures)) throw new Error("format invalide");
+        exportData(true); // filet de sécurité avant écrasement
+        state.fiches = data.fiches;
+        state.heures = data.heures;
+        saveFiches(state.fiches); saveHeures(state.heures);
+        state.selectedFicheId = state.fiches[0]?.id || null;
+        toast("Données restaurées");
+        renderSauvegarde();
+      } catch(err){
+        toast("Fichier invalide, restauration annulée");
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  // init
+  document.querySelector('[data-tab="fiches"]').classList.add('active');
+  render();
+
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(()=>{});
+    });
+  }
+})();
+</script>
+</body>
+</html>
