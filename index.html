@@ -169,6 +169,10 @@
   .segmented{display:flex;border:1.5px solid var(--primary);border-radius:10px;overflow:hidden;margin-top:6px;}
   .segmented button{flex:1;border-radius:0;background:#fff;color:var(--primary);padding:9px;}
   .segmented button.active{background:var(--primary);color:#fff;}
+  .mini-btn{padding:7px 12px;font-size:0.8rem;}
+  .weekdays{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap;}
+  .wd-btn{flex:1;min-width:38px;padding:8px 0;border:1.5px solid var(--primary);border-radius:8px;background:#fff;color:var(--primary);font-size:0.78rem;font-weight:700;}
+  .wd-btn.active{background:var(--primary);color:#fff;}
   .checkline{display:flex;align-items:center;gap:8px;margin-top:10px;}
   .checkline input{width:auto;}
   .checkline label{margin:0;}
@@ -270,6 +274,7 @@
     heuresMonth: currentYm(),
     estimMonth: currentYm(),
     journeeType: 'travail', // 'travail' ou 'absence'
+    journeeMode: 'unique', // 'unique' ou 'plage'
   };
 
   if(state.fiches.length && !state.selectedFicheId){
@@ -425,6 +430,8 @@
     const all = heuresEntries.concat(absEntries).sort((a,b)=>a.date.localeCompare(b.date));
 
     const isTravail = state.journeeType === 'travail';
+    const isUnique = state.journeeMode !== 'plage';
+    const todayStr = new Date().toISOString().slice(0,10);
 
     app.innerHTML = `
       <div class="card">
@@ -437,9 +444,37 @@
           <button type="button" data-jt="travail" class="${isTravail?'active':''}">Travaillée</button>
           <button type="button" data-jt="absence" class="${!isTravail?'active':''}">Absence</button>
         </div>
-        <label for="h-date">Date</label>
-        <input type="date" id="h-date" value="${new Date().toISOString().slice(0,10)}">
         ${isTravail ? `
+          <div class="segmented" style="margin-top:8px;">
+            <button type="button" data-jm="unique" class="${isUnique?'active':''}">Jour unique</button>
+            <button type="button" data-jm="plage" class="${!isUnique?'active':''}">Plusieurs jours (glisser une période)</button>
+          </div>
+          ${isUnique ? `
+            <label for="h-date">Date</label>
+            <input type="date" id="h-date" value="${todayStr}">
+          ` : `
+            <div class="row">
+              <div>
+                <label for="h-date-start">Du</label>
+                <input type="date" id="h-date-start" value="${todayStr}">
+              </div>
+              <div>
+                <label for="h-date-end">Au</label>
+                <input type="date" id="h-date-end" value="${todayStr}">
+              </div>
+            </div>
+            <label>Jours concernés dans cette période</label>
+            <div class="weekdays">
+              <button type="button" class="wd-btn active" data-wd="0">Lun</button>
+              <button type="button" class="wd-btn active" data-wd="1">Mar</button>
+              <button type="button" class="wd-btn active" data-wd="2">Mer</button>
+              <button type="button" class="wd-btn active" data-wd="3">Jeu</button>
+              <button type="button" class="wd-btn active" data-wd="4">Ven</button>
+              <button type="button" class="wd-btn" data-wd="5">Sam</button>
+              <button type="button" class="wd-btn" data-wd="6">Dim</button>
+            </div>
+            <p class="hint">Touche un jour pour l'inclure/exclure. Les mêmes horaires seront appliqués à toutes les dates cochées de la période.</p>
+          `}
           <div class="row">
             <div>
               <label for="h-debut">Heure début</label>
@@ -453,6 +488,8 @@
           <label for="h-comment">Commentaire (optionnel)</label>
           <input type="text" id="h-comment" placeholder="Ex : sortie plus tôt">
         ` : `
+          <label for="h-date">Date</label>
+          <input type="date" id="h-date" value="${todayStr}">
           <label for="h-type">Type d'absence</label>
           <select id="h-type">
             ${TYPES_ABSENCE.map(t=>`<option value="${t}">${t}</option>`).join('')}
@@ -506,7 +543,13 @@
     document.getElementById('h-month').addEventListener('change', (e)=>{ state.heuresMonth = e.target.value; renderHeures(); });
     document.getElementById('h-save').addEventListener('click', onSaveJournee);
     document.querySelectorAll('[data-jt]').forEach(b => b.addEventListener('click', ()=>{
-      state.journeeType = b.dataset.jt; renderHeures();
+      state.journeeType = b.dataset.jt; state.journeeMode = 'unique'; renderHeures();
+    }));
+    document.querySelectorAll('[data-jm]').forEach(b => b.addEventListener('click', ()=>{
+      state.journeeMode = b.dataset.jm; renderHeures();
+    }));
+    document.querySelectorAll('.wd-btn').forEach(b => b.addEventListener('click', ()=>{
+      b.classList.toggle('active');
     }));
     const payeeBox = document.getElementById('h-payee');
     if(payeeBox){
@@ -527,6 +570,9 @@
   }
 
   function onSaveJournee(){
+    if(state.journeeType === 'travail' && state.journeeMode === 'plage'){
+      return onSaveJourneePlage();
+    }
     const date = document.getElementById('h-date').value;
     if(!date){ toast("La date est obligatoire"); return; }
     // une date = soit travail, soit absence : on retire l'éventuelle entrée existante de l'autre type
@@ -559,6 +605,45 @@
       saveJSON(STORAGE_ABSENCES, state.absences);
     }
     toast("Journée enregistrée");
+    renderHeures();
+  }
+
+  function onSaveJourneePlage(){
+    const dateStart = document.getElementById('h-date-start').value;
+    const dateEnd = document.getElementById('h-date-end').value;
+    const debut = document.getElementById('h-debut').value;
+    const fin = document.getElementById('h-fin').value;
+    const commentaire = document.getElementById('h-comment').value.trim();
+    if(!dateStart || !dateEnd){ toast("Indique une date de début et de fin"); return; }
+    if(dateEnd < dateStart){ toast("La date de fin doit être après la date de début"); return; }
+    if(!debut || !fin){ toast("Complète les heures"); return; }
+    const selectedWd = new Set();
+    document.querySelectorAll('.wd-btn.active').forEach(b => selectedWd.add(parseInt(b.dataset.wd,10)));
+    if(selectedWd.size===0){ toast("Sélectionne au moins un jour de la semaine"); return; }
+
+    const WD_GETDAY = [1,2,3,4,5,6,0]; // index bouton (Lun=0..Dim=6) -> Date.getDay()
+    let count = 0;
+    let cur = new Date(dateStart+'T00:00:00');
+    const end = new Date(dateEnd+'T00:00:00');
+    while(cur <= end){
+      const btnIndex = WD_GETDAY.indexOf(cur.getDay());
+      if(selectedWd.has(btnIndex)){
+        const dateStr = cur.getFullYear() + "-" + String(cur.getMonth()+1).padStart(2,'0') + "-" + String(cur.getDate()).padStart(2,'0');
+        state.absences = state.absences.filter(a => !(a.ficheId===state.selectedFicheId && a.date===dateStr));
+        const existing = state.heures.find(h => h.ficheId===state.selectedFicheId && h.date===dateStr);
+        if(existing){
+          existing.debut = debut; existing.fin = fin; existing.commentaire = commentaire;
+        } else {
+          state.heures.push({id: uid(), ficheId: state.selectedFicheId, date: dateStr, debut, fin, commentaire});
+        }
+        count++;
+      }
+      cur.setDate(cur.getDate()+1);
+    }
+    if(count===0){ toast("Aucun jour sélectionné dans cette période"); return; }
+    saveJSON(STORAGE_HEURES, state.heures);
+    saveJSON(STORAGE_ABSENCES, state.absences);
+    toast(count + " journée(s) enregistrée(s)");
     renderHeures();
   }
 
@@ -600,16 +685,53 @@
               <span class="tt">${money(c.total)}</span>
             </div>
             <div class="sub">${c.joursTravailles} j travaillés · ${c.totalHeures.toFixed(2)} h · salaire ${money(c.salaire)} · entretien ${money(c.entretienTotal)} · repas ${money(c.repasTotal)}${c.nbAbsences ? ` · ${c.nbAbsences} absence(s)${c.absencesPayees ? ' (' + money(c.absencesPayees) + ' payée)' : ''}` : ''}</div>
+            <div class="btn-row" style="margin-top:8px;">
+              <button class="btn-outline mini-btn" data-share-fiche="${c.fiche.id}">Partager à ${escapeHtml(c.fiche.famille || 'cette famille')}</button>
+            </div>
           </div>
         `).join('')}
         <div class="total-line grand"><span>TOTAL GLOBAL</span><span>${money(grandTotal)}</span></div>
         <div class="btn-row">
-          <button class="btn-accent" id="e-share">Partager / copier le résumé global</button>
+          <button class="btn-accent" id="e-share">Partager / copier le résumé global (usage interne)</button>
         </div>
-        <p class="hint">Estimation indicative basée sur les taux et montants saisis — elle ne remplace pas un calcul officiel de bulletin de salaire.</p>
+        <p class="hint">Le résumé global liste tous les enfants — à garder pour toi. Utilise le bouton individuel sous chaque enfant pour envoyer à ses parents, sans que les tarifs des autres familles n'apparaissent.</p>
       </div>
     `;
     document.getElementById('e-month').addEventListener('change', (e)=>{ state.estimMonth=e.target.value; renderEstimation(); });
+
+    function texteIndividuel(c){
+      let texte = `Estimation — ${escapeHtml(c.fiche.prenom)} ${escapeHtml(c.fiche.nomEnfant||'')}\n${monthLabel(state.estimMonth)}\n\n`;
+      texte += `Jours travaillés : ${c.joursTravailles}\n`;
+      texte += `Heures totales : ${c.totalHeures.toFixed(2)} h\n`;
+      texte += `Salaire (${c.fiche.taux} €/h) : ${money(c.salaire)}\n`;
+      texte += `Indemnité entretien : ${money(c.entretienTotal)}\n`;
+      texte += `Frais de repas : ${money(c.repasTotal)}\n`;
+      if(c.nbAbsences) texte += `Absences : ${c.nbAbsences}${c.absencesPayees ? ' (dont ' + money(c.absencesPayees) + ' payée)' : ''}\n`;
+      texte += `TOTAL ESTIMÉ : ${money(c.total)}\n`;
+      return texte;
+    }
+
+    function shareOrCopy(texte, filename){
+      if(navigator.share){
+        navigator.share({title:"Estimation Nounou Manager", text:texte}).catch(()=>{});
+      } else {
+        navigator.clipboard.writeText(texte).then(()=>toast("Résumé copié dans le presse-papiers"))
+          .catch(()=>{
+            const blob = new Blob([texte], {type:'text/plain'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = filename;
+            a.click();
+          });
+      }
+    }
+
+    document.querySelectorAll('[data-share-fiche]').forEach(b => b.addEventListener('click', ()=>{
+      const c = calc.find(x => x.fiche.id === b.dataset.shareFiche);
+      if(!c) return;
+      shareOrCopy(texteIndividuel(c), `estimation-${c.fiche.prenom}-${state.estimMonth}.txt`);
+    }));
+
     document.getElementById('e-share').addEventListener('click', ()=>{
       let texte = `ESTIMATION — ${monthLabel(state.estimMonth)}\n\n`;
       calc.forEach(c => {
