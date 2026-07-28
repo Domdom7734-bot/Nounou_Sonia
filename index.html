@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Nounou Sonia Manager</title>
+<title>Nounou Manager</title>
 <meta name="theme-color" content="#3D6B7A">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icons/icon-192.png">
@@ -24,6 +24,7 @@
     --border:#E4E0D8;
     --danger:#B5504B;
     --success:#4C7A5E;
+    --absence:#8A6A1F;
     --radius:14px;
   }
   *{box-sizing:border-box;}
@@ -65,7 +66,7 @@
     margin:10px 0 4px;
     font-weight:600;
   }
-  input[type=text],input[type=number],input[type=date],input[type=time],textarea,select{
+  input[type=text],input[type=number],input[type=date],input[type=time],input[type=tel],input[type=email],input[type=month],textarea,select{
     width:100%;
     padding:10px 12px;
     border:1px solid var(--border);
@@ -121,7 +122,9 @@
     font-size:0.92rem;
   }
   .heure-item:last-child{border-bottom:none;}
-  .heure-item .dur{color:var(--primary-dark);font-weight:700;}
+  .heure-item .dur{color:var(--primary-dark);font-weight:700;white-space:nowrap;}
+  .heure-item.is-absence .dur{color:var(--absence);}
+  .heure-item .comment{display:block;font-size:0.78rem;font-style:italic;color:var(--ink-soft);margin-top:2px;}
   .empty{
     text-align:center;color:var(--ink-soft);padding:24px 10px;font-size:0.92rem;
   }
@@ -163,13 +166,25 @@
   select.fiche-select{margin-bottom:14px;}
   .hint{font-size:0.78rem;color:var(--ink-soft);margin-top:4px;}
   a.link-btn{color:var(--primary);font-weight:600;text-decoration:none;}
+  .segmented{display:flex;border:1.5px solid var(--primary);border-radius:10px;overflow:hidden;margin-top:6px;}
+  .segmented button{flex:1;border-radius:0;background:#fff;color:var(--primary);padding:9px;}
+  .segmented button.active{background:var(--primary);color:#fff;}
+  .checkline{display:flex;align-items:center;gap:8px;margin-top:10px;}
+  .checkline input{width:auto;}
+  .checkline label{margin:0;}
+  .child-summary{border-bottom:1px solid var(--border);padding:12px 0;}
+  .child-summary:last-child{border-bottom:none;}
+  .child-summary .head{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
+  .child-summary .head .nm{font-weight:700;color:var(--primary-dark);}
+  .child-summary .head .tt{font-weight:700;}
+  .child-summary .sub{font-size:0.82rem;color:var(--ink-soft);}
 </style>
 </head>
 <body>
 
 <header class="top">
   <div>
-    <h1>Nounou Sonia Manager</h1>
+    <h1>Nounou Manager</h1>
     <div class="sub" id="headerSub">Gestion simple des heures et du salaire</div>
   </div>
 </header>
@@ -185,7 +200,7 @@
   </button>
   <button data-tab="heures" class="tab-btn">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
-    Heures
+    Journées
   </button>
   <button data-tab="estimation" class="tab-btn">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg>
@@ -201,14 +216,14 @@
 (function(){
   "use strict";
 
-  const STORAGE_FICHES = "nounou_fiches_v1";
-  const STORAGE_HEURES = "nounou_heures_v1";
+  const STORAGE_FICHES = "nounou_fiches_v2";
+  const STORAGE_HEURES = "nounou_heures_v2";
+  const STORAGE_ABSENCES = "nounou_absences_v2";
   const COLORS = ["#3D6B7A","#D9A441","#B5504B","#4C7A5E","#7A5C8A","#C97B5A"];
+  const TYPES_ABSENCE = ["Congé payé","Maladie","Congé sans solde","Jour férié","Autre"];
 
-  function loadFiches(){ try { return JSON.parse(localStorage.getItem(STORAGE_FICHES)) || []; } catch(e){ return []; } }
-  function saveFiches(list){ localStorage.setItem(STORAGE_FICHES, JSON.stringify(list)); }
-  function loadHeures(){ try { return JSON.parse(localStorage.getItem(STORAGE_HEURES)) || []; } catch(e){ return []; } }
-  function saveHeures(list){ localStorage.setItem(STORAGE_HEURES, JSON.stringify(list)); }
+  function loadJSON(key){ try { return JSON.parse(localStorage.getItem(key)) || []; } catch(e){ return []; } }
+  function saveJSON(key, list){ localStorage.setItem(key, JSON.stringify(list)); }
 
   function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
   function escapeHtml(s){ return (s||"").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
@@ -222,34 +237,39 @@
   }
   function timeToMinutes(t){
     if(!t) return null;
-    const [h,m] = t.split(':').map(Number);
-    return h*60+m;
+    const parts = t.split(':').map(Number);
+    return parts[0]*60+parts[1];
   }
   function computeDurationHours(debut, fin){
     let d = timeToMinutes(debut), f = timeToMinutes(fin);
     if(d===null||f===null) return 0;
     let diff = f - d;
-    if(diff < 0) diff += 24*60; // passage minuit
+    if(diff < 0) diff += 24*60;
     return diff/60;
   }
   function monthLabel(ym){
-    const [y,m] = ym.split('-');
+    const parts = ym.split('-');
     const noms = ["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
-    return noms[parseInt(m,10)-1] + " " + y;
+    return noms[parseInt(parts[1],10)-1] + " " + parts[0];
   }
   function currentYm(){
     const d = new Date();
     return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,'0');
   }
+  function fmtDate(d){
+    return new Date(d+'T00:00:00').toLocaleDateString('fr-FR',{weekday:'short',day:'2-digit',month:'2-digit'});
+  }
 
   let state = {
     tab: 'fiches',
-    fiches: loadFiches(),
-    heures: loadHeures(),
+    fiches: loadJSON(STORAGE_FICHES),
+    heures: loadJSON(STORAGE_HEURES),
+    absences: loadJSON(STORAGE_ABSENCES),
     selectedFicheId: null,
     editingFicheId: null,
     heuresMonth: currentYm(),
     estimMonth: currentYm(),
+    journeeType: 'travail', // 'travail' ou 'absence'
   };
 
   if(state.fiches.length && !state.selectedFicheId){
@@ -280,23 +300,43 @@
     app.innerHTML = `
       <div class="card">
         <h2>${editing ? "Modifier la fiche" : "Nouvelle fiche"}</h2>
-        <label for="f-nom">Prénom de l'enfant</label>
-        <input type="text" id="f-nom" value="${editing ? escapeHtml(editing.nom) : ''}" placeholder="Ex : Léo">
-        <label for="f-famille">Famille / employeur</label>
-        <input type="text" id="f-famille" value="${editing ? escapeHtml(editing.famille) : ''}" placeholder="Ex : Famille Martin">
+        <div class="row">
+          <div>
+            <label for="f-prenom">Prénom de l'enfant</label>
+            <input type="text" id="f-prenom" value="${editing ? escapeHtml(editing.prenom) : ''}" placeholder="Léo">
+          </div>
+          <div>
+            <label for="f-nomEnfant">Nom de l'enfant</label>
+            <input type="text" id="f-nomEnfant" value="${editing ? escapeHtml(editing.nomEnfant||'') : ''}" placeholder="Dupont">
+          </div>
+        </div>
+        <label for="f-naissance">Date de naissance</label>
+        <input type="date" id="f-naissance" value="${editing ? (editing.dateNaissance||'') : ''}">
+        <label for="f-famille">Famille employeuse</label>
+        <input type="text" id="f-famille" value="${editing ? escapeHtml(editing.famille) : ''}" placeholder="Famille Martin">
+        <div class="row">
+          <div>
+            <label for="f-tel">Téléphone parent</label>
+            <input type="tel" id="f-tel" value="${editing ? escapeHtml(editing.telephoneParent||'') : ''}" placeholder="06 12 34 56 78">
+          </div>
+          <div>
+            <label for="f-email">Email parent</label>
+            <input type="email" id="f-email" value="${editing ? escapeHtml(editing.emailParent||'') : ''}" placeholder="parent@mail.com">
+          </div>
+        </div>
         <div class="row">
           <div>
             <label for="f-taux">Taux horaire net (€)</label>
-            <input type="number" step="0.01" min="0" id="f-taux" value="${editing ? editing.taux : ''}" placeholder="Ex : 4.50">
+            <input type="number" step="0.01" min="0" id="f-taux" value="${editing ? editing.taux : ''}" placeholder="4.50">
           </div>
           <div>
             <label for="f-entretien">Indemnité entretien / jour (€)</label>
-            <input type="number" step="0.01" min="0" id="f-entretien" value="${editing ? editing.entretien : ''}" placeholder="Ex : 3.50">
+            <input type="number" step="0.01" min="0" id="f-entretien" value="${editing ? editing.entretien : ''}" placeholder="3.50">
           </div>
         </div>
         <label for="f-repas">Frais de repas / jour (€)</label>
-        <input type="number" step="0.01" min="0" id="f-repas" value="${editing ? editing.repas : ''}" placeholder="Ex : 4.00">
-        <p class="hint">Ces montants sont modifiables à tout moment, notamment lors d'une revalorisation légale annuelle.</p>
+        <input type="number" step="0.01" min="0" id="f-repas" value="${editing ? editing.repas : ''}" placeholder="4.00">
+        <p class="hint">Les montants sont modifiables à tout moment, notamment lors d'une revalorisation légale annuelle.</p>
         <div class="btn-row">
           <button class="btn-primary" id="f-save">${editing ? "Enregistrer" : "Ajouter la fiche"}</button>
           ${editing ? '<button class="btn-ghost" id="f-cancel">Annuler</button>' : ''}
@@ -309,13 +349,13 @@
             <div class="fiche-item">
               <div class="dot" style="background:${COLORS[i % COLORS.length]}"></div>
               <div class="fiche-info">
-                <div class="name">${escapeHtml(f.nom)}</div>
-                <div class="meta">${escapeHtml(f.famille)} · ${f.taux}€/h</div>
+                <div class="name">${escapeHtml(f.prenom)} ${escapeHtml(f.nomEnfant||'')}</div>
+                <div class="meta">${escapeHtml(f.famille)} · ${f.taux} €/h</div>
               </div>
               <button class="icon-btn" data-edit="${f.id}" aria-label="Modifier">✎</button>
               <button class="icon-btn" data-del="${f.id}" aria-label="Supprimer">🗑</button>
             </div>
-          `).join('') : '<div class="empty">Aucune fiche pour l\'instant. Ajoute la première ci-dessus.</div>'}
+          `).join('') : "<div class=\"empty\">Aucune fiche pour l'instant. Ajoute la première ci-dessus.</div>"}
         </div>
       </div>
     `;
@@ -326,11 +366,14 @@
       state.editingFicheId = b.dataset.edit; renderFiches();
     }));
     document.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', ()=>{
-      if(confirm("Supprimer cette fiche et toutes ses heures saisies ?")){
+      if(confirm("Supprimer cette fiche et toutes ses journées saisies ?")){
         const id = b.dataset.del;
         state.fiches = state.fiches.filter(f=>f.id!==id);
         state.heures = state.heures.filter(h=>h.ficheId!==id);
-        saveFiches(state.fiches); saveHeures(state.heures);
+        state.absences = state.absences.filter(a=>a.ficheId!==id);
+        saveJSON(STORAGE_FICHES, state.fiches);
+        saveJSON(STORAGE_HEURES, state.heures);
+        saveJSON(STORAGE_ABSENCES, state.absences);
         if(state.selectedFicheId===id) state.selectedFicheId = state.fiches[0]?.id || null;
         toast("Fiche supprimée");
         renderFiches();
@@ -339,59 +382,92 @@
   }
 
   function onSaveFiche(){
-    const nom = document.getElementById('f-nom').value.trim();
+    const prenom = document.getElementById('f-prenom').value.trim();
+    const nomEnfant = document.getElementById('f-nomEnfant').value.trim();
+    const dateNaissance = document.getElementById('f-naissance').value;
     const famille = document.getElementById('f-famille').value.trim();
+    const telephoneParent = document.getElementById('f-tel').value.trim();
+    const emailParent = document.getElementById('f-email').value.trim();
     const taux = parseFloat(document.getElementById('f-taux').value);
     const entretien = parseFloat(document.getElementById('f-entretien').value) || 0;
     const repas = parseFloat(document.getElementById('f-repas').value) || 0;
-    if(!nom){ toast("Le prénom est obligatoire"); return; }
+    if(!prenom){ toast("Le prénom est obligatoire"); return; }
     if(isNaN(taux) || taux <= 0){ toast("Indique un taux horaire valide"); return; }
+    const payload = {prenom, nomEnfant, dateNaissance, famille, telephoneParent, emailParent, taux, entretien, repas};
     if(state.editingFicheId){
       const f = state.fiches.find(x=>x.id===state.editingFicheId);
-      Object.assign(f, {nom, famille, taux, entretien, repas});
+      Object.assign(f, payload);
       state.editingFicheId = null;
       toast("Fiche mise à jour");
     } else {
-      const f = {id: uid(), nom, famille, taux, entretien, repas};
+      const f = Object.assign({id: uid()}, payload);
       state.fiches.push(f);
       state.selectedFicheId = f.id;
       toast("Fiche ajoutée");
     }
-    saveFiches(state.fiches);
+    saveJSON(STORAGE_FICHES, state.fiches);
     renderFiches();
   }
 
-  // ---------- HEURES ----------
+  // ---------- HEURES / JOURNEES (travail + absences) ----------
   function renderHeures(){
-    headerSub.textContent = "Saisie des heures";
+    headerSub.textContent = "Journées travaillées et absences";
     if(!state.fiches.length){
-      app.innerHTML = '<div class="card"><div class="empty">Crée d\'abord une fiche dans l\'onglet « Fiches ».</div></div>';
+      app.innerHTML = "<div class=\"card\"><div class=\"empty\">Crée d'abord une fiche dans l'onglet Fiches.</div></div>";
       return;
     }
     if(!state.selectedFicheId) state.selectedFicheId = state.fiches[0].id;
-    const entries = state.heures
-      .filter(h => h.ficheId===state.selectedFicheId && h.date.startsWith(state.heuresMonth))
-      .sort((a,b)=>a.date.localeCompare(b.date));
+
+    const heuresEntries = state.heures.filter(h => h.ficheId===state.selectedFicheId && h.date.startsWith(state.heuresMonth))
+      .map(h => Object.assign({_kind:'travail'}, h));
+    const absEntries = state.absences.filter(a => a.ficheId===state.selectedFicheId && a.date.startsWith(state.heuresMonth))
+      .map(a => Object.assign({_kind:'absence'}, a));
+    const all = heuresEntries.concat(absEntries).sort((a,b)=>a.date.localeCompare(b.date));
+
+    const isTravail = state.journeeType === 'travail';
 
     app.innerHTML = `
       <div class="card">
         <label for="h-fiche">Enfant</label>
         <select id="h-fiche" class="fiche-select">
-          ${state.fiches.map(f=>`<option value="${f.id}" ${f.id===state.selectedFicheId?'selected':''}>${escapeHtml(f.nom)}</option>`).join('')}
+          ${state.fiches.map(f=>`<option value="${f.id}" ${f.id===state.selectedFicheId?'selected':''}>${escapeHtml(f.prenom)}</option>`).join('')}
         </select>
         <h2>Ajouter une journée</h2>
+        <div class="segmented">
+          <button type="button" data-jt="travail" class="${isTravail?'active':''}">Travaillée</button>
+          <button type="button" data-jt="absence" class="${!isTravail?'active':''}">Absence</button>
+        </div>
         <label for="h-date">Date</label>
         <input type="date" id="h-date" value="${new Date().toISOString().slice(0,10)}">
-        <div class="row">
-          <div>
-            <label for="h-debut">Heure début</label>
-            <input type="time" id="h-debut" value="08:30">
+        ${isTravail ? `
+          <div class="row">
+            <div>
+              <label for="h-debut">Heure début</label>
+              <input type="time" id="h-debut" value="08:00">
+            </div>
+            <div>
+              <label for="h-fin">Heure fin</label>
+              <input type="time" id="h-fin" value="18:00">
+            </div>
           </div>
-          <div>
-            <label for="h-fin">Heure fin</label>
-            <input type="time" id="h-fin" value="17:30">
+          <label for="h-comment">Commentaire (optionnel)</label>
+          <input type="text" id="h-comment" placeholder="Ex : sortie plus tôt">
+        ` : `
+          <label for="h-type">Type d'absence</label>
+          <select id="h-type">
+            ${TYPES_ABSENCE.map(t=>`<option value="${t}">${t}</option>`).join('')}
+          </select>
+          <div class="checkline">
+            <input type="checkbox" id="h-payee">
+            <label for="h-payee">Journée payée quand même</label>
           </div>
-        </div>
+          <div id="h-montant-wrap" style="display:none;">
+            <label for="h-montant">Montant à inclure dans l'estimation (€)</label>
+            <input type="number" step="0.01" min="0" id="h-montant" value="0">
+          </div>
+          <label for="h-comment">Commentaire (optionnel)</label>
+          <input type="text" id="h-comment" placeholder="Ex : arrêt maladie 3 jours">
+        `}
         <div class="btn-row">
           <button class="btn-primary" id="h-save">Ajouter</button>
         </div>
@@ -400,103 +476,157 @@
         <label for="h-month">Mois affiché</label>
         <input type="month" id="h-month" value="${state.heuresMonth}">
         <div style="margin-top:10px;">
-          ${entries.length ? entries.map(e => `
-            <div class="heure-item">
-              <div>${new Date(e.date+'T00:00:00').toLocaleDateString('fr-FR',{weekday:'short',day:'2-digit',month:'2-digit'})} — ${e.debut} → ${e.fin}</div>
-              <div class="dur">${computeDurationHours(e.debut,e.fin).toFixed(2)} h
-                <button class="icon-btn" data-delh="${e.id}" aria-label="Supprimer">🗑</button>
-              </div>
-            </div>
-          `).join('') : '<div class="empty">Aucune heure saisie ce mois-ci pour cet enfant.</div>'}
+          ${all.length ? all.map(e => {
+            if(e._kind==='travail'){
+              return `
+                <div class="heure-item">
+                  <div>${fmtDate(e.date)} — ${e.debut} → ${e.fin}
+                    ${e.commentaire ? `<span class="comment">${escapeHtml(e.commentaire)}</span>` : ''}
+                  </div>
+                  <div class="dur">${computeDurationHours(e.debut,e.fin).toFixed(2)} h
+                    <button class="icon-btn" data-delh="${e.id}" aria-label="Supprimer">🗑</button>
+                  </div>
+                </div>`;
+            } else {
+              return `
+                <div class="heure-item is-absence">
+                  <div>${fmtDate(e.date)} — ${escapeHtml(e.type)}
+                    ${e.commentaire ? `<span class="comment">${escapeHtml(e.commentaire)}</span>` : ''}
+                  </div>
+                  <div class="dur">${e.payee ? money(e.montant||0) : 'non payée'}
+                    <button class="icon-btn" data-dela="${e.id}" aria-label="Supprimer">🗑</button>
+                  </div>
+                </div>`;
+            }
+          }).join('') : '<div class="empty">Aucune journée saisie ce mois-ci pour cet enfant.</div>'}
         </div>
       </div>
     `;
     document.getElementById('h-fiche').addEventListener('change', (e)=>{ state.selectedFicheId = e.target.value; renderHeures(); });
     document.getElementById('h-month').addEventListener('change', (e)=>{ state.heuresMonth = e.target.value; renderHeures(); });
-    document.getElementById('h-save').addEventListener('click', onSaveHeure);
+    document.getElementById('h-save').addEventListener('click', onSaveJournee);
+    document.querySelectorAll('[data-jt]').forEach(b => b.addEventListener('click', ()=>{
+      state.journeeType = b.dataset.jt; renderHeures();
+    }));
+    const payeeBox = document.getElementById('h-payee');
+    if(payeeBox){
+      payeeBox.addEventListener('change', ()=>{
+        document.getElementById('h-montant-wrap').style.display = payeeBox.checked ? 'block' : 'none';
+      });
+    }
     document.querySelectorAll('[data-delh]').forEach(b=>b.addEventListener('click', ()=>{
       state.heures = state.heures.filter(h=>h.id!==b.dataset.delh);
-      saveHeures(state.heures);
+      saveJSON(STORAGE_HEURES, state.heures);
+      renderHeures();
+    }));
+    document.querySelectorAll('[data-dela]').forEach(b=>b.addEventListener('click', ()=>{
+      state.absences = state.absences.filter(a=>a.id!==b.dataset.dela);
+      saveJSON(STORAGE_ABSENCES, state.absences);
       renderHeures();
     }));
   }
 
-  function onSaveHeure(){
+  function onSaveJournee(){
     const date = document.getElementById('h-date').value;
-    const debut = document.getElementById('h-debut').value;
-    const fin = document.getElementById('h-fin').value;
-    if(!date || !debut || !fin){ toast("Complète tous les champs"); return; }
-    const existing = state.heures.find(h => h.ficheId===state.selectedFicheId && h.date===date);
-    if(existing){
-      if(!confirm("Une saisie existe déjà pour ce jour. La remplacer ?")) return;
-      existing.debut = debut; existing.fin = fin;
+    if(!date){ toast("La date est obligatoire"); return; }
+    // une date = soit travail, soit absence : on retire l'éventuelle entrée existante de l'autre type
+    state.heures = state.heures.filter(h => !(h.ficheId===state.selectedFicheId && h.date===date && state.journeeType==='absence'));
+    state.absences = state.absences.filter(a => !(a.ficheId===state.selectedFicheId && a.date===date && state.journeeType==='travail'));
+
+    if(state.journeeType === 'travail'){
+      const debut = document.getElementById('h-debut').value;
+      const fin = document.getElementById('h-fin').value;
+      const commentaire = document.getElementById('h-comment').value.trim();
+      if(!debut || !fin){ toast("Complète les heures"); return; }
+      const existing = state.heures.find(h => h.ficheId===state.selectedFicheId && h.date===date);
+      if(existing){
+        existing.debut = debut; existing.fin = fin; existing.commentaire = commentaire;
+      } else {
+        state.heures.push({id: uid(), ficheId: state.selectedFicheId, date, debut, fin, commentaire});
+      }
+      saveJSON(STORAGE_HEURES, state.heures);
     } else {
-      state.heures.push({id: uid(), ficheId: state.selectedFicheId, date, debut, fin});
+      const type = document.getElementById('h-type').value;
+      const payee = document.getElementById('h-payee').checked;
+      const montant = payee ? (parseFloat(document.getElementById('h-montant').value) || 0) : 0;
+      const commentaire = document.getElementById('h-comment').value.trim();
+      const existing = state.absences.find(a => a.ficheId===state.selectedFicheId && a.date===date);
+      if(existing){
+        Object.assign(existing, {type, payee, montant, commentaire});
+      } else {
+        state.absences.push({id: uid(), ficheId: state.selectedFicheId, date, type, payee, montant, commentaire});
+      }
+      saveJSON(STORAGE_ABSENCES, state.absences);
     }
-    saveHeures(state.heures);
     toast("Journée enregistrée");
     renderHeures();
   }
 
-  // ---------- ESTIMATION ----------
-  function renderEstimation(){
-    headerSub.textContent = "Estimation mensuelle";
-    if(!state.fiches.length){
-      app.innerHTML = '<div class="card"><div class="empty">Crée d\'abord une fiche dans l\'onglet « Fiches ».</div></div>';
-      return;
-    }
-    if(!state.selectedFicheId) state.selectedFicheId = state.fiches[0].id;
-    const fiche = state.fiches.find(f=>f.id===state.selectedFicheId);
-    const entries = state.heures.filter(h => h.ficheId===fiche.id && h.date.startsWith(state.estimMonth));
+  // ---------- ESTIMATION (vue globale tous enfants) ----------
+  function computeFicheMonth(fiche, ym){
+    const entries = state.heures.filter(h => h.ficheId===fiche.id && h.date.startsWith(ym));
+    const absEntries = state.absences.filter(a => a.ficheId===fiche.id && a.date.startsWith(ym));
     const totalHeures = entries.reduce((s,e)=>s+computeDurationHours(e.debut,e.fin),0);
     const joursTravailles = entries.length;
     const salaire = totalHeures * fiche.taux;
     const repasTotal = joursTravailles * fiche.repas;
     const entretienTotal = joursTravailles * fiche.entretien;
-    const total = salaire + repasTotal + entretienTotal;
+    const absencesPayees = absEntries.filter(a=>a.payee).reduce((s,a)=>s+(a.montant||0),0);
+    const nbAbsences = absEntries.length;
+    const total = salaire + repasTotal + entretienTotal + absencesPayees;
+    return {totalHeures, joursTravailles, salaire, repasTotal, entretienTotal, absencesPayees, nbAbsences, total};
+  }
+
+  function renderEstimation(){
+    headerSub.textContent = "Estimation mensuelle — tous les enfants";
+    if(!state.fiches.length){
+      app.innerHTML = "<div class=\"card\"><div class=\"empty\">Crée d'abord une fiche dans l'onglet Fiches.</div></div>";
+      return;
+    }
+    const calc = state.fiches.map(f => Object.assign({fiche:f}, computeFicheMonth(f, state.estimMonth)));
+    const grandTotal = calc.reduce((s,c)=>s+c.total, 0);
 
     app.innerHTML = `
       <div class="card">
-        <label for="e-fiche">Enfant</label>
-        <select id="e-fiche" class="fiche-select">
-          ${state.fiches.map(f=>`<option value="${f.id}" ${f.id===fiche.id?'selected':''}>${escapeHtml(f.nom)}</option>`).join('')}
-        </select>
         <label for="e-month">Mois</label>
         <input type="month" id="e-month" value="${state.estimMonth}">
       </div>
       <div class="card">
-        <h2>${escapeHtml(fiche.nom)} — <span class="badge">${monthLabel(state.estimMonth)}</span></h2>
-        <div class="total-line"><span>Jours travaillés</span><span>${joursTravailles}</span></div>
-        <div class="total-line"><span>Heures totales</span><span>${totalHeures.toFixed(2)} h</span></div>
-        <div class="total-line"><span>Salaire (${fiche.taux} €/h)</span><span>${money(salaire)}</span></div>
-        <div class="total-line"><span>Indemnité entretien (${fiche.entretien} €/j)</span><span>${money(entretienTotal)}</span></div>
-        <div class="total-line"><span>Frais de repas (${fiche.repas} €/j)</span><span>${money(repasTotal)}</span></div>
-        <div class="total-line grand"><span>Total estimé</span><span>${money(total)}</span></div>
+        <h2><span class="badge">${monthLabel(state.estimMonth)}</span></h2>
+        ${calc.map(c => `
+          <div class="child-summary">
+            <div class="head">
+              <span class="nm">${escapeHtml(c.fiche.prenom)} ${escapeHtml(c.fiche.nomEnfant||'')}</span>
+              <span class="tt">${money(c.total)}</span>
+            </div>
+            <div class="sub">${c.joursTravailles} j travaillés · ${c.totalHeures.toFixed(2)} h · salaire ${money(c.salaire)} · entretien ${money(c.entretienTotal)} · repas ${money(c.repasTotal)}${c.nbAbsences ? ` · ${c.nbAbsences} absence(s)${c.absencesPayees ? ' (' + money(c.absencesPayees) + ' payée)' : ''}` : ''}</div>
+          </div>
+        `).join('')}
+        <div class="total-line grand"><span>TOTAL GLOBAL</span><span>${money(grandTotal)}</span></div>
         <div class="btn-row">
-          <button class="btn-accent" id="e-share">Partager / copier le résumé</button>
+          <button class="btn-accent" id="e-share">Partager / copier le résumé global</button>
         </div>
-        <p class="hint">Estimation indicative basée sur les taux saisis dans la fiche — elle ne remplace pas un calcul officiel de bulletin de salaire.</p>
+        <p class="hint">Estimation indicative basée sur les taux et montants saisis — elle ne remplace pas un calcul officiel de bulletin de salaire.</p>
       </div>
     `;
-    document.getElementById('e-fiche').addEventListener('change', (e)=>{ state.selectedFicheId=e.target.value; renderEstimation(); });
     document.getElementById('e-month').addEventListener('change', (e)=>{ state.estimMonth=e.target.value; renderEstimation(); });
     document.getElementById('e-share').addEventListener('click', ()=>{
-      const texte = `Estimation - ${fiche.nom} (${fiche.famille})\n${monthLabel(state.estimMonth)}\n\n`+
-        `Jours travaillés : ${joursTravailles}\n`+
-        `Heures totales : ${totalHeures.toFixed(2)} h\n`+
-        `Salaire (${fiche.taux} €/h) : ${money(salaire)}\n`+
-        `Indemnité entretien : ${money(entretienTotal)}\n`+
-        `Frais de repas : ${money(repasTotal)}\n`+
-        `TOTAL ESTIMÉ : ${money(total)}\n`;
+      let texte = `ESTIMATION — ${monthLabel(state.estimMonth)}\n\n`;
+      calc.forEach(c => {
+        texte += `${c.fiche.prenom} ${c.fiche.nomEnfant||''} — ${c.totalHeures.toFixed(2)} h — Salaire: ${money(c.salaire)} — Entretien: ${money(c.entretienTotal)} — Repas: ${money(c.repasTotal)}`;
+        if(c.nbAbsences) texte += ` — Absences: ${c.nbAbsences}${c.absencesPayees ? ' (' + money(c.absencesPayees) + ' payée)' : ''}`;
+        texte += ` — TOTAL: ${money(c.total)}\n`;
+      });
+      texte += `\nTOTAL GLOBAL : ${money(grandTotal)}\n`;
       if(navigator.share){
-        navigator.share({title:"Estimation Nounou Sonia Manager", text:texte}).catch(()=>{});
+        navigator.share({title:"Estimation Nounou Manager", text:texte}).catch(()=>{});
       } else {
         navigator.clipboard.writeText(texte).then(()=>toast("Résumé copié dans le presse-papiers"))
           .catch(()=>{
             const blob = new Blob([texte], {type:'text/plain'});
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
-            a.download = `estimation-${fiche.nom}-${state.estimMonth}.txt`;
+            a.download = `estimation-${state.estimMonth}.txt`;
             a.click();
           });
       }
@@ -509,7 +639,7 @@
     app.innerHTML = `
       <div class="card">
         <h2>Exporter toutes les données</h2>
-        <p class="hint">Télécharge une copie complète (fiches + heures) à garder en sécurité, par exemple sur ton Drive.</p>
+        <p class="hint">Télécharge une copie complète (fiches + journées + absences) à garder en sécurité, par exemple sur ton Drive.</p>
         <div class="btn-row">
           <button class="btn-primary" id="s-export">Télécharger la sauvegarde</button>
         </div>
@@ -521,19 +651,19 @@
       </div>
       <div class="card">
         <h2>Réinitialiser</h2>
-        <p class="hint">Supprime toutes les fiches et heures de cet appareil. Irréversible.</p>
+        <p class="hint">Supprime toutes les fiches, journées et absences de cet appareil. Irréversible.</p>
         <div class="btn-row">
           <button class="btn-danger" id="s-reset">Tout effacer</button>
         </div>
       </div>
     `;
-    document.getElementById('s-export').addEventListener('click', exportData);
+    document.getElementById('s-export').addEventListener('click', ()=>exportData(false));
     document.getElementById('s-import').addEventListener('change', importData);
     document.getElementById('s-reset').addEventListener('click', ()=>{
-      if(confirm("Supprimer définitivement toutes les fiches et heures ?")){
+      if(confirm("Supprimer définitivement toutes les fiches, journées et absences ?")){
         exportData(true);
-        state.fiches = []; state.heures = [];
-        saveFiches([]); saveHeures([]);
+        state.fiches = []; state.heures = []; state.absences = [];
+        saveJSON(STORAGE_FICHES, []); saveJSON(STORAGE_HEURES, []); saveJSON(STORAGE_ABSENCES, []);
         toast("Données effacées");
         renderSauvegarde();
       }
@@ -541,7 +671,7 @@
   }
 
   function exportData(silent){
-    const data = {version:1, exportedAt: new Date().toISOString(), fiches: state.fiches, heures: state.heures};
+    const data = {version:2, exportedAt: new Date().toISOString(), fiches: state.fiches, heures: state.heures, absences: state.absences};
     const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -558,10 +688,13 @@
       try {
         const data = JSON.parse(reader.result);
         if(!Array.isArray(data.fiches) || !Array.isArray(data.heures)) throw new Error("format invalide");
-        exportData(true); // filet de sécurité avant écrasement
+        exportData(true);
         state.fiches = data.fiches;
         state.heures = data.heures;
-        saveFiches(state.fiches); saveHeures(state.heures);
+        state.absences = Array.isArray(data.absences) ? data.absences : [];
+        saveJSON(STORAGE_FICHES, state.fiches);
+        saveJSON(STORAGE_HEURES, state.heures);
+        saveJSON(STORAGE_ABSENCES, state.absences);
         state.selectedFicheId = state.fiches[0]?.id || null;
         toast("Données restaurées");
         renderSauvegarde();
