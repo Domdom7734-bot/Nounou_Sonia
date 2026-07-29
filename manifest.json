@@ -1,6 +1,6 @@
 {
-  "name": "Nounou Manager",
-  "short_name": "Nounou",
+  "name": "Nounou Sonia Manager",
+  "short_name": "Nounou Sonia",
   "description": "Gestion des enfants gardés, saisie des heures et estimation de salaire",
   "start_url": "./index.html",
   "scope": "./",
