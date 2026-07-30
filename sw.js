@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nounou-manager-v4';
+const CACHE_NAME = 'nounou-manager-v5';
 const ASSETS = [
   './index.html',
   './manifest.json',
