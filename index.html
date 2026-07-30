@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
@@ -232,7 +232,7 @@
   const STORAGE_FICHES = "nounou_fiches_v3";
   const STORAGE_ABSENCES = "nounou_absences_v3";
   const COLORS = ["#3D6B7A","#D9A441","#B5504B","#4C7A5E","#7A5C8A","#C97B5A"];
-  const TYPES_ABSENCE = ["Absence maladie enfant","Absence maladie nounou","Absence convenance parents","Enfant récupéré plus tôt"];
+  const TYPES_ABSENCE = ["Absence maladie enfant","Absence maladie nounou"];
   const JOURS_LABELS = ["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
 
   function loadJSON(key){ try { return JSON.parse(localStorage.getItem(key)) || []; } catch(e){ return []; } }
@@ -379,7 +379,6 @@
       return;
     }
     app.innerHTML = state.fiches.map((f,i) => {
-      const d = ficheDerived(f);
       const joursHtml = JOURS_LABELS.map((lab,idx) => (f.joursSemaine||[])[idx] ? `<span class="day-badge">${lab}</span>` : '').join('');
       return `
       <div class="card readonly-card">
@@ -392,7 +391,6 @@
         <div class="readonly-line"><span>Maman</span><span>${escapeHtml(f.prenomMaman||'—')} ${f.telephoneMaman ? '· '+escapeHtml(f.telephoneMaman) : ''}</span></div>
         <div class="readonly-line"><span>Horaires habituels</span><span>${f.heureArrivee&&f.heureDepart ? f.heureArrivee+' → '+f.heureDepart : '—'}</span></div>
         <div style="margin-top:6px;">${joursHtml || '<span class="hint">Jours non renseignés</span>'}</div>
-        ${d.complet ? `<div class="preview-box"><div class="big">${money(d.totalMensuel)} / mois</div><div class="hint">Mensualité calculée à partir du contrat (modifiable dans Paramètres)</div></div>` : '<p class="hint">Contrat incomplet — complète les horaires, jours et taux dans Paramètres pour voir la mensualité.</p>'}
       </div>`;
     }).join('');
   }
