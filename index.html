@@ -263,6 +263,12 @@
   function fmtDate(d){
     return new Date(d+'T00:00:00').toLocaleDateString('fr-FR',{weekday:'short',day:'2-digit',month:'2-digit'});
   }
+  function telLink(numero){
+    if(!numero) return '';
+    const clean = numero.replace(/[^0-9+]/g,'');
+    if(!clean) return escapeHtml(numero);
+    return `<a href="tel:${clean}" style="color:var(--primary);font-weight:600;text-decoration:none;">${escapeHtml(numero)}</a>`;
+  }
   function currentYm(){
     const d = new Date();
     return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,'0');
@@ -387,8 +393,8 @@
           <h3 style="margin:0;">${escapeHtml(f.prenom)} ${escapeHtml(f.nomEnfant||'')}</h3>
         </div>
         <div class="readonly-line"><span>Date de naissance</span><span>${f.dateNaissance ? new Date(f.dateNaissance+'T00:00:00').toLocaleDateString('fr-FR') : '—'}</span></div>
-        <div class="readonly-line"><span>Papa</span><span>${escapeHtml(f.prenomPapa||'—')} ${f.telephonePapa ? '· '+escapeHtml(f.telephonePapa) : ''}</span></div>
-        <div class="readonly-line"><span>Maman</span><span>${escapeHtml(f.prenomMaman||'—')} ${f.telephoneMaman ? '· '+escapeHtml(f.telephoneMaman) : ''}</span></div>
+        <div class="readonly-line"><span>Papa</span><span>${escapeHtml(f.prenomPapa||'—')} ${f.telephonePapa ? '· '+telLink(f.telephonePapa) : ''}</span></div>
+        <div class="readonly-line"><span>Maman</span><span>${escapeHtml(f.prenomMaman||'—')} ${f.telephoneMaman ? '· '+telLink(f.telephoneMaman) : ''}</span></div>
         <div class="readonly-line"><span>Horaires habituels</span><span>${f.heureArrivee&&f.heureDepart ? f.heureArrivee+' → '+f.heureDepart : '—'}</span></div>
         <div style="margin-top:6px;">${joursHtml || '<span class="hint">Jours non renseignés</span>'}</div>
       </div>`;
